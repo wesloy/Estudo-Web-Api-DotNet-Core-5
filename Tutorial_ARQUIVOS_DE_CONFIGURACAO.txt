@@ -1,0 +1,22 @@
+ARQUIVOS DE CONFIGURAÇÃO
+
+- global.json
+Determinar a versão do SDK.
+https://docs.microsoft.com/pt-br/dotnet/core/tools/global-json?tabs=netcore3x
+
+- appsettings.json / appsettings.Development.json
+São os arquivos de configuração para o ambiente de produção e desenvolvimento respctivamente.
+{
+  "Logging": {    
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Information",  <<<<<<<<<<<<<<<<<<<<<<< pode ser alterado para configuração de aviso apenas de 'perigos', alterando para "Warning"
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  },
+  "AllowedHosts": "*" 
+}
+
+
+- Properties\launchSettings.json
+Determinar a forma que o projeto irá rodar e onde

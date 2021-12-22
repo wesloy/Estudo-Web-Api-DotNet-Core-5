@@ -1,0 +1,61 @@
+COMANDOS DE TERMINAL
+
+- dotnet -h 
+    Help para todos os comandos
+- dotnet --list-sdk
+    Listar todos sdks que estão na máquina
+- dotnet new
+    Listar todos templates que podem ser criados
+- dotnet new webapi -h
+    Listar opções da criação do projeto
+- dotnet new webapi -n nomeProjeto
+    Criar o projeto e nomeá-lo
+- dotnet run
+    Rodar o projeto, para isso tem de estar dentro da pasta do projeto
+    - dotnet watch run
+        Irá mostrar no terminal todas as chamadas
+
+
+EF 
+Instalando o Entity Framework (Versão 5 do donet Core não vem mais pré instalado)
+
+Pode usar o Nuget Gallery, para instalar:
+ - Microsoft.EntityFrameworkCore
+ - Microsoft.EntityFrameworkCore.SqlServer
+ - Microsoft.EntityFrameworkCore.Tools
+ - Microsoft.EntityFrameworkCore.Design
+
+Ou pode usar a linha de comando, como exemplo abaixo:
+
+dotnet tool install --global dotnet-ef
+
+O EF precisa ser refenciado no projeto (nomearquivo.csproj), caso seja feita instalação por linha de comando.
+Já na instalação pelo Nuget Gallery, já é selecionado o arquivo a ser refenciado.
+
+Comandos principais
+    - dotnet ef >>> mostra todos os recursos possíveis de serem feitos
+    Sempre que uma modificação nas models ocorreu deve:
+    - 1º faz a migração (Ex: dotnet ef migrations  add Inicial -o Data/Migrations)
+    - 2º update (Ex: dotnet ef database update)
+
+    Migrações em soluções divididas com um projeto por camada, se faz necessário identificar qual projeto deve receber a migration e qual
+    é o projeto que é o .Net Core.
+    Exemplo de código:
+    - dotnet ef migrations add Inicial -p .\Categorizador.Persistence\ -s .\Categorizador.Api\
+    Para o Database Update segue o mesmo processo:
+    - dotnet ef database update -p .\Categorizador.Persistence\ -s .\Categorizador.Api\
+
+
+GIT
+- dotnet new gitignore
+    Criação do arquivo de forma automática para ignorar arquivos no versionamento
+- git init
+    Cria o pacote para empurrar para o versionador
+- git add .
+    Adiciona todos arquivos modificados para serem feitos Push para o versionado
+- git commit -m "Detalhes do commit"
+    Indica a pasta que deve ser eniado, se um branch ou a principal e descreve o pq da ação de comitar.
+- git remote add origin http://gitlab.algartech.com/wesleyel/estudos-webapi.git
+    indica ao VS Code que estamos remotamente trabalhando com o repositorio
+- git push -u origin master
+    Enviado o pacote para o versionador

@@ -1,0 +1,165 @@
+1) Criar uma solução para vincular e registrar os projetos dentro da subpasta SRC
+>>> Comando:
+    dotnet new sln -n NomeDaSolucao (Sentinella)
+
+2) Criar as estruturas de camadas, sendo um projeto para cada uma das estruturas
+>>> Comando:
+    dotnet new classlib -n nomeCamada (Sentinella.Persistence)
+
+3) Todas as Camadas são:
+- Api >>> Expoem os métodos (Controller) a um cliente
+- Application >>> regras negócios da aplicação
+- Persistence >>> faz comunicação com BD e trata os dados  
+- Domain >>> Tabelas do sistema com suas propriedades, refletidas como estão no BD
+
+4) Associar cada 1 dos projetos (camadas) na soluction criada. Assim terá uma solução final, que utiliza todos os projetos.
+>>> Comando:
+    dotnet sln NomeDaSolucao.sln add nomeCamada
+
+5) Referenciar os projetos entre eles. 
+>>> Comando:
+    dotnet add caminho/NomeDaSolucao.csproj reference NomeDaSolucao
+    Exemplo: dotnet add Sentinella.Api/Sentinella.api.csproj reference Sentinella.Application
+        Entendendo a referenciação: o comando exemplo acima mostra que o projeto Sentinella.Api.csproj pode acessar o projeto Sentinella.Application
+
+>>> Ordem de refenciação:
+    Api recebe Application
+    Application recebe Domain e Persistence
+    Persistence recebe Domain    
+
+
+6) Cascata de desenvolvimento/Construção de cada uma das camadas:
+
+>>> Domain
+    Camada que deve refletir a tabela do BD
+    Criar um arquivo por tabela do BD
+
+
+>>> Persistence
+    Camada dividida em conexão, contratos e repositorios, sendo:
+
+    * Contexts 
+        - Herda a conexão do banco de dados, vindo do arquivo Start.cs da API.
+        - Lista e nomeia as Tabelas usadas no BD pelo sistema 
+        - Cada arquivo de Context trabalha com a estrutura do BD que está vinculado
+
+    * Interfaces
+        - Cria o contrato de utilização, ou seja, gera uma obrigatoriedade de implantação dos métodos na classe que a herda.
+        - Nesta camada gera os contratos para os Repositorios.
+        
+        <<< Dica >>>
+        Fazer uma Interface geral, para conter os métodos de: Criação, Atualização e Deleção. Este método pode ser utilizado por todas os Repositórios.
+        Fazer apenas os gets específicos por reporistório.
+
+    * Repositores
+        - Abre a conexão com o BD por consumir o Context
+        - Herda as Interfaces, implantando os métodos exigidos por ela.
+        - Ou seja, une a conexão aos contratos.
+
+    <<< Dica >>>
+    Em caso de erro de Tracking sendo utilizado, em qualquer chamada, inserir código demonstrado abaixo.
+        # 1ª Opção: Retira a possibilidade de todos os méttodos locar o registro:
+            _context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking; 
+        # 2ª Opção: Retirar no método específico, utilizando comado abaixo (AsNoTracking()) no retorno da função.
+            return await qry.AsNoTracking().ToArrayAsync();
+
+    * Esta camada (Persistence), também tem o histórico de migração realizado no BD.
+
+
+>>> Application
+    Camada dividida em  dtos, contratos e serviços, sendo:  
+
+    * DTOs 
+        Data Object Transfer, usado para padronizar os retornos da aplicação, evitando exposição indesejada.
+        Deve ficar na camada de Application.
+
+        - Criar uma subpasta para os DTOs, e também uma subpasta para cada repositório, dividir dentro desta sub/sub/pasta Dtos por funções,
+        deixando exposto apenas as informações que devem ser enviadas aos endpoint.
+        Exemplos de Dtos por repositorio são: GrupoDto (Seria o Get), GrupoInsertDto e GrupoUpdateDto.
+        Mas a qtde de Dtos, vai depender da necessidade do negócio.
+
+
+        - Extensão necessária, baixada do Nugget, para auto mapear um repositorio para um DTO:
+            # AutoMapper.Extensions.Microsoft.DependencyInjection
+            # Deve ser instalada na API, neste exemplo o projeto Categorizador.Api
+        
+            # Após instalação referenciar no Startup.cs, dentro do método Configuration.
+                - services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+            # O referenica acima, colocada na Startup procura um arquivo tipo Profile onde todos os mapeamentos dos repositórios 
+            possam serão feitos.
+
+            - Mapiando um repositório para um DTO
+                Criar uma pasta para ficar mais organizado.
+                Criar um arquivo nomeado Mapeamentos que herda de Profile.
+                Codificação, dentro do arquivo de mapeamento, como nome do método igual ao do arquivo:
+                    public Mapeamentos ()
+                    {
+                        CreateMap<Grupo, GrupoDto>();
+                    }   
+
+            # a subcamda SERVICES, da Application, é que irá alimentar os DTOs com os dados vindos do BD.
+                - para funcionar corretamente é necessário adiconar no método construtor de cada um dos serviços o Mapping. Exemplo:
+
+                                public readonly IMapper _mapper ;
+                                
+                                public GrupoService(IMapper mapper)
+                                {
+                                    _mapper = mapper;
+                                }
+
+
+        - Agora os métodos da Service podem retornar DTOs à partir da recuperação dos dados do BD, usando dentro do método, após o
+        retorno do BD o DE/PARA, como abaixo:
+
+            var resultado = _mapper.Map<GrupoDto>(grupo);
+
+
+    * Interfaces
+        - Cria o contrato de utilização, ou seja, gera uma obrigatoriedade de implantação dos métodos na classe que a herda.
+        - Nesta camada gera os contratos para os Serviços.
+
+
+    * Services
+        - Em seu método construtor, invoca as Interfaces da Persistence Geral e a Específica para a classe e o mapeamento.
+            # Persistence Geral possui métodos comuns a qualquer repositorio, como: Add, Update e Delete.
+            # Persistence Específica possui os gets únicos, relacionados apenas aquele repositorio
+            # Mapeamento será responsável para alimentar os DTOs, ver abaixo.
+        - É aqui que insere-se as tratativas de erros
+
+
+>>> Api
+    Camada que expõe os métodos, através das Cotrollers
+    Possui os arquivos de configurações de toda aplicação
+
+    * Controllers
+        - Possui uma classe construtora para invocar os servicos já estabelecidos e com tratativas de erros
+        - Trabalhar com IActionResults desta forma pode-se:
+            # Tratar melhor os erros, devolvendo os StatusCode do HTTP
+            # Codificação mais genérica
+
+
+        - Referenciar dentro de Startup.cs TODAS as injeções de dependencias feitas em cada uma das Controllers.
+        Fazer isso, dentro do método >> public void ConfigureServices(IServiceCollection services)
+        Depois do instanciamento das controllers >> services.AddControllers();
+        Exemplo:
+                //Grupos
+                services.AddScoped<IGrupoService, GrupoService>();
+                services.AddScoped<IGrupoRepository, GrupoRepository>();
+                services.AddScoped<IGeralRepository, GeralRepository>();
+
+        <<< Dica >>>
+        Qdo existe referenciação de tabelas de modo circular, como por exemplo, Grupo FK Fila e Fila possui Grupo,
+        é necessário, dentro da Statup.cs no services.AddControllers() invocar o método AddNewtonsoftJson(), como abaixo:
+            mudando de:
+                services.AddControllers();
+            para:
+                services.AddControllers().AddNewtonsoftJson(
+                    x => x.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+                );
+
+            Observação: necessário instalar com o Nuget >> Microsoft.AspNetCore.Mvc.NewtonsoftJson
+
+  
+
+
+

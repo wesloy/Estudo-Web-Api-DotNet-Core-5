@@ -1,0 +1,85 @@
+Autenticando no Backend
+Agora vem a parte mais legal, autenticar no Backend, onde precisamos receber o Token no cabeçalho da requisição 
+e validá-lo nos servidores do Google para receber as informações do usuário.
+
+O processo é mesmo que fazemos nas autenticações normais, que eu mostro com detalhes no curso 7194 – Criando APIs 
+Data Driven com ASP.NET Core 3 e EF Core 3.
+
+Vamos começar adicionando o pacote de Autenticação/JWT a nossa API.
+>>>>>>> dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+
+Feito isto, vamos garantir que estamos exigindo autenticação e autorização em nossa API, indo até o método 
+Configure do Startup.cs e verificando se há estas duas linhas:
+
+app.UseAuthentication();
+app.UseAuthorization();
+Agora precisamos informar para nossa API que estamos utilizando autenticação e que ela é do tipo JWT/Bearer. 
+Isto é feito no método ConfigureServices, adicionando a linha abaixo:
+
+services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme);  
+Isto é tudo que precisamos para dizer a nossa API que estamos trabalhando com autenticação e que 
+vamos esperar Tokens do tipo JWT pelo cabeçalho Authorization do tipo Bearer.
+
+Até então nossa API está preparada para receber estes Tokens, neste formato, mas ela não sabe COMO ela vai 
+desencriptar este Token e ter acesso às informações do usuário. Para isto ocorrer, precisamos dizer para nossa API qual URL 
+ela usa para verificar o Token, e isto é chamado de Authority.
+
+O servidor de identidade (Google no nosso caso) não vai receber Tokens de qualquer lugar e validá-los, ele precisa saber 
+quem está mandando este Token, afinal, podemos ter vários Apps com Login do Google na mesma conta. Desta forma, precisamos informar o Issuer e o Audience, 
+que é a URL utilizada para verificar o Token da nossa aplicação e o ID da nossa aplicação respectivamente.
+
+O código final para este trecho fica assim:
+
+services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = "https://securetoken.google.com/<ID DO SEU PROJETO>";
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = "https://securetoken.google.com/<ID DO SEU PROJETO>",
+            ValidateAudience = true,
+            ValidAudience = "<ID DO SEU PROJETO>",
+            ValidateLifetime = true
+        };
+    });
+Pronto, temos Login com Google sendo validado na nossa API.
+
+# Validando a autenticação #
+
+Com tudo configurado, vamos para qualquer método do nosso Controller padrão criado e vamos adicionar o atributo [Authorize]. 
+Faça isto e tente chamar o método via Postman por exemplo. Você terá um erro 401 – Unauthorized.
+Agora copie o Token gerado pelo processo anterior que fizemos, no Client, e faça uma nova requisição para sua API, na mesma URL, mas agora informando o cabeçalho:
+Authorization | Bearer SEUTOKEN
+Magicamente nossa API validou nosso Token nos servidores da Google e já permitiu nosso acesso ao método que solicitamos. Incrível, não é?
+
+Com pouquíssimas linhas de código nós integramos nossa API ao Google e ainda conseguimos usar os atributos padrões do ASP.NET Core, 
+de forma simples e rápida (E melhor... SEM ASP.NET IDENTITY).
+
+Para finalizar, se você quiser obter os dados do usuário, eles ficam em User.Identity.Claims, aí fica uma lista 
+com tudo que o Scope que pedimos anteriormente permite. O código final do Controller está aqui:
+
+using System.Linq; using Microsoft.AspNetCore.Authorization; using Microsoft.AspNetCore.Mvc;
+
+namespace fire.Controllers
+{
+    [ApiController]
+    [Route("")]
+    public class HomeController : ControllerBase
+    {
+        [HttpGet]
+        [Authorize]
+        public dynamic Get()
+        {
+            return new
+            {
+                name = User.Claims.Where(x => x.Type == "name").FirstOrDefault().Value,
+                // email = User.Claims.Where(x => x.Type == "email").FirstOrDefault().Value,
+                picture = User.Claims.Where(x => x.Type == "picture").FirstOrDefault().Value,
+            };
+        }
+    }
+}
+E o código fonte completo deste exemplo você encontra no meu GitHub:
+https://github.com/andrebaltieri/aspnetcore-firebase-google-login
